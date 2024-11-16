@@ -1,6 +1,6 @@
 local _G, _ = _G or getfenv()
 
-local GuildBank = CreateFrame("Frame")
+GuildBank = CreateFrame("Frame")
 
 GuildBank:RegisterEvent("CHAT_MSG_ADDON")
 GuildBank:RegisterEvent("GOSSIP_SHOW")
@@ -140,13 +140,13 @@ GuildBank.debug = false
 
 GuildBank.prefix = "TW_GUILDBANK"
 
-GuildBank.npc_alliance = "Teller Plushner"
-GuildBank.npc_horde = "Are"
+GuildBank.npcTitle = "Vault Keeper"
 
 GuildBank.alive = false
 
 GuildBank.cursorItem = {}
 GuildBank.tabs = {}
+GuildBank.tabs.info = {}
 
 GuildBank.newTabSettings = {
     tab = nil,
@@ -367,6 +367,18 @@ end)
 ------------------------------------------- Events
 ------------------------------------------------------------
 
+function GuildBank:SpoofGossip()
+    GuildBank.gossipOpen = true
+    if not GuildBank.alive then
+        GuildBank:GetBankInfo()
+    else
+        gdebug("guild bank live, can show")
+        GuildBankFrameTab_OnClick(1, true)
+        GuildBankFrameBottomTab_OnClick(1)
+        GuildBankFrame:Show()
+    end
+end
+
 GuildBank:SetScript("OnEvent", function()
     if event then
 
@@ -376,17 +388,9 @@ GuildBank:SetScript("OnEvent", function()
         end
 
         if event == "GOSSIP_SHOW" then
-            if UnitName('target') and (UnitName('target') == GuildBank.npc_alliance or UnitName('target') == GuildBank.npc_horde) then
-                GuildBank.gossipOpen = true
+            if UnitName('target') and strfind(UnitName('target'), GuildBank.npcTitle) then
                 GossipFrame:SetAlpha(0)
-                if not GuildBank.alive then
-                    GuildBank:GetBankInfo()
-                else
-                    gdebug("guild bank live, can show")
-                    GuildBankFrameTab_OnClick(1, true)
-                    GuildBankFrameBottomTab_OnClick(1)
-                    GuildBankFrame:Show()
-                end
+                GuildBank:SpoofGossip()
             end
             return
         end
@@ -394,8 +398,7 @@ GuildBank:SetScript("OnEvent", function()
         if event == "GOSSIP_CLOSED" then
             GuildBank.gossipOpen = false
 
-            if UnitName('target') and (UnitName('target') == GuildBank.npc_alliance or UnitName('target') == GuildBank.npc_horde)
-            then
+            if UnitName('target') and strfind(UnitName('target'), GuildBank.npcTitle) then
                 ClearTarget()
                 GossipFrame:SetAlpha(1)
                 GuildBankFrameCloseButton_OnClick()
@@ -406,7 +409,6 @@ GuildBank:SetScript("OnEvent", function()
         if event == "CHAT_MSG_ADDON" and arg1 == GuildBank.prefix then
 
             local message = arg2
-
 
             if string.find(message, "Access:Error:HC", 1, true) then
                 HideUIPanel(GossipFrame)
@@ -675,6 +677,9 @@ GuildBank:SetScript("OnEvent", function()
 
                     local tab = tonumber(rEx[2])
 
+                    if not GuildBank.tabs.info then GuildBank.tabs.info = {} end
+                    if not GuildBank.tabs.info[tab] then GuildBank.tabs.info[tab] = {} end
+
                     GuildBank.tabs.info[tab].name = rEx[3]
                     GuildBank.tabs.info[tab].icon = rEx[4]
                     GuildBank.tabs.info[tab].withdrawals = tonumber(rEx[5])
@@ -897,6 +902,23 @@ end)
 
 function GuildBankFrame_OnShow()
     PlaySoundFile("Interface\\GuildBankFrame\\GuildBankOpen.wav", "Dialog");
+
+    if InventoryCounterDB then
+        local counts = {}
+        local count = 0
+        for i = 1, MAX_TABS do
+            for _, item in GuildBank.items[i] do
+                counts[item.itemID] = item.count + (counts[item.itemID] or 0)
+            end
+        end
+        for itemID,count in counts do
+            local name = GetItemInfo("item:"..itemID)
+            if name then
+                InventoryCounterDB[GuildBank.guildInfo.name] = InventoryCounterDB[GuildBank.guildInfo.name] or { gbank = { [name] = 0, } }
+                InventoryCounterDB[GuildBank.guildInfo.name]["gbank"][name] = count
+            end
+        end
+    end
 end
 
 function GuildBankFrame_OnHide()
@@ -1775,6 +1797,10 @@ function GuildBank:UpdateTabTitle()
         GuildBankFrameWithdrawalsTitleBackground:Show()
         GuildBankFrameWithdrawalsTitleBackgroundLeft:Show()
         GuildBankFrameWithdrawalsTitleBackgroundRight:Show()
+
+        if not self.tabs.info[self.currentTab] then return end
+        if not self.tabs.info[self.currentTab].name then return end
+        
         GuildBankFrameTabTitle:SetText(self.tabs.info[self.currentTab].name .. " " .. accessText)
     elseif self.BottomTab == 2 then
         GuildBankFrameTabTitle:SetText(self.tabs.info[self.currentTab].name .. " Log ")
@@ -2196,6 +2222,7 @@ function GuildBank:UpdateWithdrawalsLeft()
 
     GuildBankFrameWithdrawalsTitle:SetText("Remaining Weekly Withdrawals for " ..
             self.tabs.info[self.currentTab].name .. ": " .. wLeft)
+
     self:UpdateTabTitle()
     self:UpdateSlotRights()
 
