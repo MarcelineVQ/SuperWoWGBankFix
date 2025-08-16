@@ -2206,6 +2206,8 @@ function GuildBank:UpdateWithdrawalsLeft()
 
     local wLeft = "|cffFFFFFFUnlimited"
 
+    -- if not self.currentTab then self.currentTab = 1;
+
     if self.withdrawalsLeft[self.currentTab] ~= "Unlimited" then
         if self.withdrawalsLeft[self.currentTab] == "0" then
             wLeft = "|cffFFFFFFNone"

@@ -1,6 +1,8 @@
 Turtle WoW GBank fix for SuperWoW
 ===
 
+** This addon should't be neccesary anymore since 1.18.0 **
+
 This is not quite an addon, it goes in your Data Folder.
 ___
 
